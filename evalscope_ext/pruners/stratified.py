@@ -7,10 +7,17 @@ overfit to the reference models. This strategy attacks both failure
 modes simultaneously by combining three properties of the *samples*:
 
 **1. Difficulty stratification.** Bin samples by the fraction of
-   reference models that pass them, then sample uniformly across bins.
-   Why: a uniform-random subset misses rare difficulty regions; pruning
-   to all-easy or all-hard moves the apparent accuracy without telling
-   us anything about ranking. Equal-weight stratification fixes both.
+   reference models that pass them, then sample across bins
+   *proportional to each bin's share of the full set*. Why: a
+   uniform-random subset misses rare difficulty regions; pruning to
+   all-easy or all-hard biases the mean. Proportional stratification
+   fixes both while staying an unbiased estimator of the full-set
+   mean — so the pruned accuracy still reads as "is this model good
+   enough" rather than artificially low.
+
+   An ``equal``-weight stratification mode is available as a knob for
+   users who want to maximise ranking-preservation signal at the cost
+   of mean fidelity (i.e. pruned accuracy will read lower than full).
 
 **2. Discriminative weighting.** Within each bin, oversample samples
    the reference models *disagree* on (high p*(1-p)). Why: a sample
@@ -103,9 +110,13 @@ def _round_robin_diverse(
     for s in samples:
         buckets[_diversity_bucket(s)].append(s)
 
-    # Sort each bucket: high discrimination first, ties broken by index for stability.
+    # Within each bucket: order by (-discrimination, then random) so high-discrimination
+    # samples come first but ties are seed-broken instead of index-broken. That way
+    # different rng seeds give different concrete picks when many samples are
+    # discrimination-tied (which is common with three reference models — most
+    # samples land on the discriminations {0, 1.0} only).
     for v in buckets.values():
-        v.sort(key=lambda s: (-s.discrimination, s.index))
+        v.sort(key=lambda s: (-s.discrimination, rng.random(), s.index))
 
     # Shuffle the bucket order so we don't always start from the same one.
     bucket_keys = list(buckets)
@@ -136,6 +147,13 @@ class StratifiedDiscriminativePruner(Pruner):
       reference models you get pass fractions in {0, 1/3, 2/3, 1} so
       n_bins=4 is the most resolution we can get without empty bins.
 
+    - ``stratification``: ``"proportional"`` (default) keeps each bin's
+      share of the pruned set equal to its share of the full set —
+      unbiased mean estimator. ``"equal"`` keeps the same count in
+      every non-empty bin — biases mean low but maximises ranking
+      signal under low keep fractions. Document the choice in your
+      results.
+
     - ``discrimination_floor``: drop samples whose discrimination is
       below this *before* bin-internal selection. With three reference
       models, all-agree samples have discrimination 0 and the 2-1
@@ -156,14 +174,20 @@ class StratifiedDiscriminativePruner(Pruner):
         self,
         *,
         n_bins: int = 4,
+        stratification: str = "proportional",
         discrimination_floor: float = 0.0,
-        min_per_bin: int = 3,
+        min_per_bin: int = 2,
     ) -> None:
         if n_bins < 2:
             raise ValueError("n_bins must be >= 2")
+        if stratification not in ("proportional", "equal"):
+            raise ValueError(
+                f"stratification must be 'proportional' or 'equal'; got {stratification!r}"
+            )
         if not (0.0 <= discrimination_floor <= 1.0):
             raise ValueError("discrimination_floor must be in [0, 1]")
         self.n_bins = n_bins
+        self.stratification = stratification
         self.discrimination_floor = discrimination_floor
         self.min_per_bin = min_per_bin
 
@@ -171,6 +195,7 @@ class StratifiedDiscriminativePruner(Pruner):
         return {
             "name": self.name,
             "n_bins": self.n_bins,
+            "stratification": self.stratification,
             "discrimination_floor": self.discrimination_floor,
             "min_per_bin": self.min_per_bin,
         }
@@ -193,39 +218,63 @@ class StratifiedDiscriminativePruner(Pruner):
         non_empty_bins = [b for b, ss in bins.items() if ss]
         target_total = max(1, round(bundle.n_samples * keep_fraction))
 
-        # Even split across non-empty bins, respecting min_per_bin.
-        n_bins = len(non_empty_bins)
-        if n_bins == 0:
+        n_non_empty = len(non_empty_bins)
+        if n_non_empty == 0:
             return []
 
-        per_bin_base = max(self.min_per_bin, target_total // n_bins)
-        # If per_bin_base * n_bins overshoots, scale down to keep budget.
-        if per_bin_base * n_bins > target_total:
-            per_bin_base = max(1, target_total // n_bins)
+        eligible_total = sum(len(bins[b]) for b in non_empty_bins)
+        if self.stratification == "proportional":
+            # Each bin's quota proportional to its share of the eligible set —
+            # an unbiased estimator of the full-set mean.
+            quotas: dict[int, int] = {}
+            for b in non_empty_bins:
+                share = len(bins[b]) / eligible_total
+                quotas[b] = max(self.min_per_bin, round(target_total * share))
+        else:
+            # Equal weight across non-empty bins — biases mean low, max ranking signal.
+            base = max(self.min_per_bin, target_total // n_non_empty)
+            quotas = {b: base for b in non_empty_bins}
 
-        # Cap the quota to bin contents.
+        # Cap each quota to bin contents.
         bin_pickers = [
             _BinPicks(
                 bin_id=b,
                 samples=bins[b],
-                quota=min(len(bins[b]), per_bin_base),
+                quota=min(len(bins[b]), quotas[b]),
             )
             for b in non_empty_bins
         ]
 
-        # Distribute the remainder (if any) to bins with leftover capacity,
-        # rotating by bin id for determinism.
+        # Reconcile to target_total — distribute deficit / surplus deterministically.
         used = sum(bp.quota for bp in bin_pickers)
-        remainder = target_total - used
-        idx = 0
-        while remainder > 0 and any(bp.quota < len(bp.samples) for bp in bin_pickers):
-            bp = bin_pickers[idx % len(bin_pickers)]
-            if bp.quota < len(bp.samples):
-                bp.quota += 1
-                remainder -= 1
-            idx += 1
-            if idx > 10 * len(bin_pickers) and remainder > 0:
-                break  # safety
+        delta = target_total - used
+        if delta > 0:
+            # Need more — add one at a time to bins with leftover capacity,
+            # preferring proportionally-larger bins so we stay close to the
+            # population shape.
+            order = sorted(
+                bin_pickers,
+                key=lambda bp: (-(len(bp.samples) - bp.quota), bp.bin_id),
+            )
+            i = 0
+            while delta > 0 and any(bp.quota < len(bp.samples) for bp in order):
+                bp = order[i % len(order)]
+                if bp.quota < len(bp.samples):
+                    bp.quota += 1
+                    delta -= 1
+                i += 1
+                if i > 10 * len(order) and delta > 0:
+                    break
+        elif delta < 0:
+            # Over-budget — trim from largest quotas first.
+            while delta < 0:
+                # Find bin with largest quota; if tie, lowest bin_id (hardest)
+                # keeps its quota to preserve hard-bin coverage.
+                bp = max(bin_pickers, key=lambda bp: (bp.quota, -bp.bin_id))
+                if bp.quota <= self.min_per_bin:
+                    break
+                bp.quota -= 1
+                delta += 1
 
         kept: list[int] = []
         for bp in bin_pickers:
