@@ -1,6 +1,6 @@
 <!--
   =====================================================================
-  Fork notice — Cerebras AI Engineer Model Quality & Performance challenge, Task 2
+  Fork notice. Cerebras AI Engineer Model Quality & Performance challenge, Task 2.
   =====================================================================
 
   This is a fork of modelscope/evalscope.
