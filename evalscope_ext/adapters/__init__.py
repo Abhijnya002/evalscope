@@ -6,6 +6,6 @@ adapters are then discoverable as ``--datasets live_code_bench_pruned``
 and ``--datasets aa_lcr_pruned`` via evalscope's CLI.
 """
 
-from . import live_code_bench_pruned  # noqa: F401 — side-import for registration
+from . import aa_lcr_pruned, live_code_bench_pruned  # noqa: F401 — side-import for registration
 
-__all__ = ["live_code_bench_pruned"]
+__all__ = ["aa_lcr_pruned", "live_code_bench_pruned"]
