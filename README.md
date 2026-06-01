@@ -1,3 +1,55 @@
+<!--
+  =====================================================================
+  Fork notice — Cerebras AI Engineer Model Quality & Performance challenge, Task 2
+  =====================================================================
+
+  This is a fork of modelscope/evalscope.
+
+  Upstream pinned commit SHA:
+      e9d42d8b6a8dcb937e042ba905e36eb05171ae0d
+      (branch: main, date: 2026-05-29)
+
+  Our extension code lives under `evalscope_ext/`. The two handouts and
+  the plain-English overview live under `handouts/` and `docs/`.
+  See the section "Cerebras Task 2 submission" below.
+  =====================================================================
+-->
+
+## Cerebras Task 2 submission
+
+This fork carries the Cerebras AI Engineer Model Quality & Performance
+challenge, Task 2: benchmark pruning for LiveCodeBench, AA-LCR, and a
+forward-looking MMMU encoder probe.
+
+- **Pinned upstream commit:** `e9d42d8b6a8dcb937e042ba905e36eb05171ae0d`
+  (latest `modelscope/evalscope` `main` at fork time, 2026-05-29).
+  The framework's adapter API is still evolving. If you bump upstream,
+  rerun `pytest evalscope_ext/tests/` to verify the
+  `@register_benchmark` decorator signature and `DefaultDataAdapter`
+  base class haven't shifted.
+- **Extension code:** [`evalscope_ext/`](evalscope_ext/). Pruners,
+  adapters, calibration data, compare-runs CLI, 54 tests.
+- **Handouts:** [`handouts/HANDOUT_A.md`](handouts/HANDOUT_A.md) (1
+  page, technical) and [`handouts/HANDOUT_B.md`](handouts/HANDOUT_B.md)
+  (half page, mixed audience).
+- **Plain-English overview:** [`docs/about-the-handouts.md`](docs/about-the-handouts.md).
+
+Run contract (from the challenge spec):
+
+```bash
+evalscope eval --model <model> --datasets live_code_bench --output ./results_full/
+
+evalscope eval --model <model> --datasets live_code_bench_pruned \
+    --dataset-args '{"pruning_strategy": "stratified_discriminative", "prune_ratio": 0.1}' \
+    --output ./results_pruned/
+
+python -m evalscope_ext.tools.compare_runs --full ./results_full/ --pruned ./results_pruned/
+```
+
+The rest of this README is the upstream evalscope README, kept intact.
+
+---
+
 <p align="center">
     <br>
     <img src="docs/en/_static/images/evalscope_logo.png"/>
