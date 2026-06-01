@@ -1,0 +1,112 @@
+[
+  {
+    "subject": "Accounting",
+    "n": 30,
+    "mean_acc": 0.8
+  },
+  {
+    "subject": "Agriculture",
+    "n": 30,
+    "mean_acc": 0.7666666666666667
+  },
+  {
+    "subject": "Architecture_and_Engineering",
+    "n": 30,
+    "mean_acc": 0.8333333333333334
+  },
+  {
+    "subject": "Art",
+    "n": 30,
+    "mean_acc": 0.7333333333333333
+  },
+  {
+    "subject": "Art_Theory",
+    "n": 30,
+    "mean_acc": 0.9333333333333333
+  },
+  {
+    "subject": "Basic_Medical_Science",
+    "n": 30,
+    "mean_acc": 0.7
+  },
+  {
+    "subject": "Biology",
+    "n": 30,
+    "mean_acc": 0.5666666666666667
+  },
+  {
+    "subject": "Chemistry",
+    "n": 30,
+    "mean_acc": 0.5333333333333333
+  },
+  {
+    "subject": "Clinical_Medicine",
+    "n": 30,
+    "mean_acc": 0.6666666666666666
+  },
+  {
+    "subject": "Computer_Science",
+    "n": 30,
+    "mean_acc": 0.6333333333333333
+  },
+  {
+    "subject": "Design",
+    "n": 30,
+    "mean_acc": 0.8666666666666667
+  },
+  {
+    "subject": "Diagnostics_and_Laboratory_Medicine",
+    "n": 30,
+    "mean_acc": 0.6
+  },
+  {
+    "subject": "Economics",
+    "n": 30,
+    "mean_acc": 0.7666666666666667
+  },
+  {
+    "subject": "Electronics",
+    "n": 30,
+    "mean_acc": 0.43333333333333335
+  },
+  {
+    "subject": "Energy_and_Power",
+    "n": 30,
+    "mean_acc": 0.7666666666666667
+  },
+  {
+    "subject": "Finance",
+    "n": 30,
+    "mean_acc": 0.6
+  },
+  {
+    "subject": "Geography",
+    "n": 30,
+    "mean_acc": 0.6
+  },
+  {
+    "subject": "History",
+    "n": 30,
+    "mean_acc": 0.8333333333333334
+  },
+  {
+    "subject": "Literature",
+    "n": 30,
+    "mean_acc": 0.9333333333333333
+  },
+  {
+    "subject": "Manage",
+    "n": 30,
+    "mean_acc": 0.6
+  },
+  {
+    "subject": "Marketing",
+    "n": 30,
+    "mean_acc": 0.9
+  },
+  {
+    "subject": "Materials",
+    "n": 30,
+    "mean_acc": 0.6333333333333333
+  }
+]
