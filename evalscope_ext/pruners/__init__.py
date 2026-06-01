@@ -2,10 +2,12 @@
 
 from .base import Pruner, get_pruner, register_pruner, registered_strategies, validate_keep_fraction
 from .metrics import PrunerQualityReport, evaluate_selection
+from .stratified import StratifiedDiscriminativePruner
 
 __all__ = [
     "Pruner",
     "PrunerQualityReport",
+    "StratifiedDiscriminativePruner",
     "evaluate_selection",
     "get_pruner",
     "register_pruner",
